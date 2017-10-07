@@ -96,17 +96,21 @@ func main() {
 type entries interface {
 	get(key string) (string, bool)
 	set(key string, value string) string
+	del(key string)
 }
 
 func handle(c entries) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case "GET":
-			got, _ := c.get("something")
+			got, _ := c.get(r.FormValue("k"))
 			fmt.Fprintf(w, "get => %d\n", got)
-
 		case "POST":
-			fmt.Fprintf(w, "set => %d\n", c.set("something", "val"))
+			fmt.Fprintf(w, "set => %d\n", c.set(r.FormValue("k"), r.FormValue("v")))
+		case "DELETE":
+			k := r.FormValue("k")
+			c.del(k)
+			fmt.Fprintf(w, "delete => %d\n", k)
 		}
 	}
 }

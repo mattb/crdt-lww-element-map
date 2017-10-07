@@ -32,6 +32,20 @@ func newPeer(self mesh.PeerName, logger *log.Logger) *peer {
 	return p
 }
 
+func (p *peer) del(key string) {
+	c := make(chan struct{})
+	p.actions <- func() {
+		defer close(c)
+		st := p.st.del(key)
+		if p.send != nil {
+			p.send.GossipBroadcast(st)
+		} else {
+			p.logger.Printf("no sender configured; not broadcasting update right now")
+		}
+	}
+	<-c
+}
+
 func (p *peer) set(key string, value string) (result string) {
 	c := make(chan struct{})
 	p.actions <- func() {

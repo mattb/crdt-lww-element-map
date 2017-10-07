@@ -12,36 +12,36 @@ import (
 var _ mesh.GossipData = &state{}
 
 type stateentry struct {
-	key        string
-	value      string
-	addTime    time.Time
-	deleteTime time.Time
+	Key        string    `json:"key"`
+	Value      string    `json:"value"`
+	AddTime    time.Time `json:"add_time"`
+	DeleteTime time.Time `json:"delete_time"`
 }
 
 func (e stateentry) hasBeenDeleted() bool {
-	return e.deleteTime.After(e.addTime)
+	return e.DeleteTime.After(e.AddTime)
 }
 
 func (e stateentry) merge(mergeEntry stateentry) (stateentry, bool) {
-	if e.key != mergeEntry.key {
-		panic(fmt.Errorf("Keys %s and %s don't match on merge", e.key, mergeEntry.key))
+	if e.Key != mergeEntry.Key {
+		panic(fmt.Errorf("Keys %s and %s don't match on merge", e.Key, mergeEntry.Key))
 	}
 
 	changed := false
-	newEntry := stateentry{key: e.key}
-	if mergeEntry.addTime.After(e.addTime) {
-		newEntry.value = mergeEntry.value
-		newEntry.addTime = mergeEntry.addTime
+	newEntry := stateentry{Key: e.Key}
+	if mergeEntry.AddTime.After(e.AddTime) {
+		newEntry.Value = mergeEntry.Value
+		newEntry.AddTime = mergeEntry.AddTime
 		changed = true
 	} else {
-		newEntry.value = e.value
-		newEntry.addTime = e.addTime
+		newEntry.Value = e.Value
+		newEntry.AddTime = e.AddTime
 	}
-	if mergeEntry.deleteTime.After(e.deleteTime) {
-		newEntry.deleteTime = mergeEntry.deleteTime
+	if mergeEntry.DeleteTime.After(e.DeleteTime) {
+		newEntry.DeleteTime = mergeEntry.DeleteTime
 		changed = true
 	} else {
-		newEntry.deleteTime = e.deleteTime
+		newEntry.DeleteTime = e.DeleteTime
 	}
 	return newEntry, changed
 }
@@ -70,27 +70,31 @@ func (st *state) get(key string) (string, bool) {
 	defer st.mu.RUnlock()
 	if entry, found := st.entries[key]; found {
 		if !entry.hasBeenDeleted() {
-			return entry.value, true
+			return entry.Value, true
 		}
 	}
 	return "", false
 }
 
-func (st *state) delete(key string) {
+func (st *state) del(key string) (complete *state) {
 	st.mu.Lock()
 	defer st.mu.Unlock()
 	if existing, found := st.entries[key]; found {
 		st.entries[key] = stateentry{
-			key:        existing.key,
-			value:      existing.value,
-			addTime:    existing.addTime,
-			deleteTime: time.Now(),
+			Key:        existing.Key,
+			Value:      existing.Value,
+			AddTime:    existing.AddTime,
+			DeleteTime: time.Now(),
 		}
 	} else {
 		st.entries[key] = stateentry{
-			key:        key,
-			deleteTime: time.Now(),
+			Key:        key,
+			DeleteTime: time.Now(),
 		}
+	}
+
+	return &state{
+		entries: st.entries,
 	}
 }
 
@@ -99,16 +103,16 @@ func (st *state) set(key string, value string) (complete *state) {
 	defer st.mu.Unlock()
 	if existing, found := st.entries[key]; found {
 		st.entries[key] = stateentry{
-			key:        key,
-			value:      value,
-			addTime:    time.Now(),
-			deleteTime: existing.deleteTime,
+			Key:        key,
+			Value:      value,
+			AddTime:    time.Now(),
+			DeleteTime: existing.DeleteTime,
 		}
 	} else {
 		st.entries[key] = stateentry{
-			key:     key,
-			value:   value,
-			addTime: time.Now(),
+			Key:     key,
+			Value:   value,
+			AddTime: time.Now(),
 		}
 	}
 
@@ -143,7 +147,7 @@ func (st *state) mergeComplete(toMerge map[string]stateentry) (complete mesh.Gos
 		} else {
 			newEntry = mergeEntry
 		}
-		st.entries[newEntry.key] = newEntry
+		st.entries[newEntry.Key] = newEntry
 	}
 
 	return &state{entries: st.entries}
@@ -158,12 +162,12 @@ func (st *state) mergeDelta(entries map[string]stateentry) (delta mesh.GossipDat
 	for key, entry := range entries {
 		if existingEntry, found := st.entries[key]; found {
 			if mergedEntry, changed := existingEntry.merge(entry); changed {
-				st.entries[entry.key] = mergedEntry
+				st.entries[entry.Key] = mergedEntry
 			} else {
 				delete(entries, key)
 			}
 		} else {
-			st.entries[entry.key] = entry
+			st.entries[entry.Key] = entry
 		}
 	}
 
@@ -183,12 +187,12 @@ func (st *state) mergeReceived(entries map[string]stateentry) (received mesh.Gos
 	for key, entry := range entries {
 		if existingEntry, found := st.entries[key]; found {
 			if mergedEntry, changed := existingEntry.merge(entry); changed {
-				st.entries[entry.key] = mergedEntry
+				st.entries[entry.Key] = mergedEntry
 			} else {
 				delete(entries, key)
 			}
 		} else {
-			st.entries[entry.key] = entry
+			st.entries[entry.Key] = entry
 		}
 	}
 
