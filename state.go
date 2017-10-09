@@ -65,6 +65,18 @@ func (st *state) copy() *state {
 	}
 }
 
+func (st *state) getAll() map[string]string {
+	st.mu.RLock()
+	defer st.mu.RUnlock()
+	result := map[string]string{}
+	for _, entry := range st.entries {
+		if !entry.hasBeenDeleted() {
+			result[entry.Key] = entry.Value
+		}
+	}
+	return result
+}
+
 func (st *state) get(key string) (string, bool) {
 	st.mu.RLock()
 	defer st.mu.RUnlock()
@@ -128,7 +140,6 @@ func (st *state) Encode() [][]byte {
 	if err := json.NewEncoder(&buf).Encode(st.entries); err != nil {
 		panic(err)
 	}
-	fmt.Println(buf.String())
 	return [][]byte{buf.Bytes()}
 }
 
@@ -175,7 +186,7 @@ func (st *state) mergeDelta(entries map[string]stateentry) (delta mesh.GossipDat
 		return nil // per OnGossip requirements
 	}
 
-	return &state{entries: st.entries}
+	return &state{entries: entries}
 }
 
 // Merge the set into our state, abiding semantics.
@@ -196,5 +207,5 @@ func (st *state) mergeReceived(entries map[string]stateentry) (received mesh.Gos
 		}
 	}
 
-	return &state{entries: st.entries}
+	return &state{entries: entries}
 }

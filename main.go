@@ -31,6 +31,7 @@ func main() {
 	flag.Parse()
 
 	logger := log.New(os.Stderr, *nickname+"> ", log.LstdFlags)
+	//logger := log.New(ioutil.Discard, "", 0)
 
 	host, portStr, err := net.SplitHostPort(*meshListen)
 	if err != nil {
@@ -52,7 +53,7 @@ func main() {
 		ProtocolMinVersion: mesh.ProtocolMinVersion,
 		Password:           []byte(*password),
 		ConnLimit:          64,
-		PeerDiscovery:      true,
+		PeerDiscovery:      false,
 		TrustedSubnets:     []*net.IPNet{},
 	}, name, *nickname, mesh.NullOverlay{}, log.New(ioutil.Discard, "", 0))
 
@@ -95,6 +96,7 @@ func main() {
 
 type entries interface {
 	get(key string) (string, bool)
+	getAll() map[string]string
 	set(key string, value string) string
 	del(key string)
 }
@@ -103,8 +105,13 @@ func handle(c entries) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case "GET":
-			got, _ := c.get(r.FormValue("k"))
-			fmt.Fprintf(w, "get => %d\n", got)
+			k := r.FormValue("k")
+			if k != "" {
+				got, _ := c.get(r.FormValue("k"))
+				fmt.Fprintf(w, "get => %d\n", got)
+			} else {
+				fmt.Fprintf(w, "%v\n", c.getAll())
+			}
 		case "POST":
 			fmt.Fprintf(w, "set => %d\n", c.set(r.FormValue("k"), r.FormValue("v")))
 		case "DELETE":

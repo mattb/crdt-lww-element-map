@@ -1,0 +1,1 @@
+An implementation of a distributed CRDT key-value map of strings based on a [LWW-element-set](https://github.com/pfrazee/crdt_notes#lww-element-set) written in order to try out [Weaveworks Mesh](https://github.com/weaveworks/mesh)
